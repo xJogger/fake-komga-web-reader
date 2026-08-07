@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import type { ServerCapabilities } from '../api/types';
-import { Settings, CheckCircle2, XCircle, Github } from 'lucide-react';
+import { Settings, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
 
 export default function Setup() {
   const [url, setUrl] = useState('');
@@ -148,7 +148,7 @@ export default function Setup() {
           rel="noopener noreferrer"
           className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors mb-2 text-slate-700 dark:text-slate-300"
         >
-          <Github className="w-5 h-5" />
+          <ExternalLink className="w-5 h-5" />
           <div className="flex-1">
             <div className="font-medium text-sm">前端开源仓库</div>
             <div className="text-xs opacity-60">fake-komga-web-reader</div>
@@ -161,7 +161,7 @@ export default function Setup() {
           rel="noopener noreferrer"
           className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-slate-700 dark:text-slate-300"
         >
-          <Github className="w-5 h-5" />
+          <ExternalLink className="w-5 h-5" />
           <div className="flex-1">
             <div className="font-medium text-sm">后端开源仓库</div>
             <div className="text-xs opacity-60">fake-komga-115</div>
