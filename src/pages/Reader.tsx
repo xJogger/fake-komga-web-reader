@@ -22,6 +22,17 @@ export default function Reader() {
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const progressTimerRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  
+  const [toastMessage, setToastMessage] = useState('');
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage('');
+    }, 2000);
+  };
 
   // Load preferences
   useEffect(() => {
@@ -35,7 +46,7 @@ export default function Reader() {
     const newMode = readMode === 'paged' ? 'webtoon' : 'paged';
     setReadMode(newMode);
     localStorage.setItem('webui.reader.mode', newMode);
-    // Ideally we should sync this to client-settings api, but localStorage is fast
+    showToast(newMode === 'paged' ? '已切换至单页模式' : '已切换至连续模式');
   };
 
   useEffect(() => {
@@ -161,6 +172,16 @@ export default function Reader() {
   return (
     <div className="relative h-[100dvh] w-full bg-black text-slate-200 overflow-hidden select-none">
       
+      {/* Toast Notification */}
+      <div 
+        className={clsx(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] bg-white/20 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 pointer-events-none",
+          toastMessage ? "opacity-100 scale-100" : "opacity-0 scale-95"
+        )}
+      >
+        {toastMessage}
+      </div>
+
       {/* Top UI */}
       <div 
         className={clsx(

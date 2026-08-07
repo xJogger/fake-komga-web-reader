@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import type { ServerCapabilities } from '../api/types';
-import { Server, CheckCircle2, XCircle } from 'lucide-react';
+import { Settings, CheckCircle2, XCircle, Github } from 'lucide-react';
 
 export default function Setup() {
   const [url, setUrl] = useState('');
@@ -11,12 +11,23 @@ export default function Setup() {
   const [errorMsg, setErrorMsg] = useState('');
   const [serverInfo, setServerInfo] = useState<ServerCapabilities | null>(null);
   
+  const [defaultSort, setDefaultSort] = useState('metadata.titleSort,asc');
+  
   const navigate = useNavigate();
 
   useEffect(() => {
-    const saved = localStorage.getItem('komga-base-url');
-    if (saved) setUrl(saved);
+    const savedUrl = localStorage.getItem('komga-base-url');
+    if (savedUrl) setUrl(savedUrl);
+    
+    const savedSort = localStorage.getItem('webui.defaultSort');
+    if (savedSort) setDefaultSort(savedSort);
   }, []);
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSort = e.target.value;
+    setDefaultSort(newSort);
+    localStorage.setItem('webui.defaultSort', newSort);
+  };
 
   const testConnection = async (testUrl: string) => {
     setLoading(true);
@@ -33,11 +44,15 @@ export default function Setup() {
       setStatus('success');
       setServerInfo(res.data);
       localStorage.setItem('komga-base-url', cleanUrl);
-      // Force update api client base url by triggering interceptor next time
     } catch (err: any) {
       setStatus('error');
       if (err.message === 'Network Error') {
-        setErrorMsg('无法连接到服务器。请检查：\n1. 地址和端口是否正确\n2. 后端是否开启并配置了 CORS\n3. 如果是公网 HTTPS，请使用 Chrome 并允许本地网络访问');
+        const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+        if (isFirefox) {
+          setErrorMsg('连接失败 (火狐浏览器拦截)。\n\n【火狐专属解决办法】：\n请点击浏览器地址栏左侧的 🔒（带警告标志的小锁），选择“暂时禁用保护 (Disable protection for now)”，解除限制后即可正常连接！');
+        } else {
+          setErrorMsg('无法连接到服务器。请检查：\n1. 地址和端口是否正确\n2. 后端是否配置了 CORS\n3. 如果是 Safari 可能会拦截 HTTP 混合内容\n4. Chrome 请允许“本地网络访问”');
+        }
       } else {
         setErrorMsg(err.response?.data?.message || err.message || '未知错误');
       }
@@ -47,14 +62,16 @@ export default function Setup() {
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto w-full pt-12">
+    <div className="p-6 max-w-md mx-auto w-full pt-12 pb-24">
       <div className="flex items-center gap-3 mb-8">
-        <Server className="w-8 h-8 text-purple-500" />
-        <h1 className="text-2xl font-bold">服务器设置</h1>
+        <Settings className="w-8 h-8 text-purple-500" />
+        <h1 className="text-2xl font-bold">设置</h1>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-        <label className="block text-sm font-medium mb-2">局域网后端地址</label>
+      {/* 服务器配置区块 */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-6">
+        <h2 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-100">服务器连接</h2>
+        <label className="block text-sm font-medium mb-2 text-slate-600 dark:text-slate-400">局域网后端地址</label>
         <input
           type="url"
           placeholder="http://192.168.x.x:25600"
@@ -101,6 +118,55 @@ export default function Setup() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* 阅读与显示偏好区块 */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-6">
+        <h2 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-100">阅读与显示偏好</h2>
+        
+        <label className="block text-sm font-medium mb-2 text-slate-600 dark:text-slate-400">默认书库排序方式</label>
+        <select 
+          value={defaultSort} 
+          onChange={handleSortChange}
+          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 focus:ring-2 focus:ring-purple-500 outline-none cursor-pointer"
+        >
+          <option value="metadata.titleSort,asc">名称正序</option>
+          <option value="metadata.titleSort,desc">名称倒序</option>
+          <option value="lastModifiedDate,desc">最近修改</option>
+          <option value="createdDate,desc">最近添加</option>
+          <option value="random">随机</option>
+        </select>
+      </div>
+
+      {/* 关于区块 */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <h2 className="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-100">关于项目</h2>
+        
+        <a 
+          href="https://github.com/xJogger/fake-komga-web-reader" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors mb-2 text-slate-700 dark:text-slate-300"
+        >
+          <Github className="w-5 h-5" />
+          <div className="flex-1">
+            <div className="font-medium text-sm">前端开源仓库</div>
+            <div className="text-xs opacity-60">fake-komga-web-reader</div>
+          </div>
+        </a>
+
+        <a 
+          href="https://github.com/xJogger/fake-komga-115" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-slate-700 dark:text-slate-300"
+        >
+          <Github className="w-5 h-5" />
+          <div className="flex-1">
+            <div className="font-medium text-sm">后端开源仓库</div>
+            <div className="text-xs opacity-60">fake-komga-115</div>
+          </div>
+        </a>
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ export default function SeriesList() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [sort, setSort] = useState('metadata.titleSort,asc');
+  const [sort, setSort] = useState(() => localStorage.getItem('webui.defaultSort') || 'metadata.titleSort,asc');
 
   useEffect(() => {
     const fetchSeries = async () => {
