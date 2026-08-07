@@ -12,12 +12,9 @@ function App() {
       <Routes>
         {/* Full screen reader without bottom nav */}
         <Route path="/reader/:bookId" element={<Reader />} />
-        
-        {/* Setup page */}
-        <Route path="/setup" element={<Setup />} />
-
         {/* Layout with bottom nav */}
         <Route element={<Layout />}>
+          <Route path="/setup" element={<Setup />} />
           <Route path="/libraries" element={<Libraries />} />
           <Route path="/libraries/:libraryId" element={<SeriesList />} />
           <Route path="/series/:seriesId" element={<BookList />} />

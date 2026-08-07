@@ -1,11 +1,35 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useInView } from 'react-intersection-observer';
 import { api, getImageUrl } from '../api';
 import type { Book, PageDto } from '../api/types';
 import { ArrowLeft, Settings2, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
 type ReadMode = 'paged' | 'webtoon';
+
+// Lazy loaded image component for Webtoon mode
+const LazyImage = ({ page, bookId }: { page: PageDto, bookId: string }) => {
+  const { ref, inView } = useInView({
+    rootMargin: '1200px 0px', // Load images up to 1200px (about 1.5 screens) ahead/behind
+    triggerOnce: true
+  });
+
+  return (
+    <div ref={ref} data-page={page.number} className="webtoon-page w-full min-h-[300px] flex items-center justify-center bg-slate-900/50">
+      {inView ? (
+        <img
+          src={getImageUrl(`/books/${bookId}/pages/${page.number}`)}
+          className="w-full h-auto object-cover"
+          loading="lazy"
+          alt={`Page ${page.number}`}
+        />
+      ) : (
+        <div className="text-slate-500 text-sm">加载中...</div>
+      )}
+    </div>
+  );
+};
 
 export default function Reader() {
   const { bookId } = useParams();
@@ -224,14 +248,7 @@ export default function Reader() {
           // Webtoon Mode
           <div className="flex flex-col w-full max-w-3xl mx-auto">
             {pages.map(page => (
-              <img
-                key={page.number}
-                data-page={page.number}
-                src={getImageUrl(`/books/${bookId}/pages/${page.number}`)}
-                className="webtoon-page w-full h-auto object-cover"
-                loading="lazy"
-                alt={`Page ${page.number}`}
-              />
+              <LazyImage key={page.number} page={page} bookId={bookId!} />
             ))}
             <div className="py-20 flex justify-center">
               <span className="text-slate-500">本卷完</span>

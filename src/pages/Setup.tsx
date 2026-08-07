@@ -49,7 +49,7 @@ export default function Setup() {
       if (err.message === 'Network Error') {
         const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
         if (isFirefox) {
-          setErrorMsg('连接失败 (火狐浏览器拦截)。\n\n【火狐专属解决办法】：\n请点击浏览器地址栏左侧的 🔒（带警告标志的小锁），选择“暂时禁用保护 (Disable protection for now)”，解除限制后即可正常连接！');
+          setErrorMsg('连接失败 (火狐浏览器拦截)。\n\n【强烈建议】：\n由于安全限制，火狐默认无法连接局域网 HTTP，请使用 Chrome 或 Edge 浏览器。\n\n【硬核后门 (风险自负)】：\n在火狐地址栏输入 about:config，将 security.mixed_content.block_active_content 设为 false。\n(警告：这会导致火狐对所有网站失去混合内容保护，极大降低安全性！)');
         } else {
           setErrorMsg('无法连接到服务器。请检查：\n1. 地址和端口是否正确\n2. 后端是否配置了 CORS\n3. 如果是 Safari 可能会拦截 HTTP 混合内容\n4. Chrome 请允许“本地网络访问”');
         }
