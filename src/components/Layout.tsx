@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Library, Settings } from 'lucide-react';
 import { useEffect } from 'react';
+import { safeStorage } from '../api';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -8,7 +9,7 @@ export default function Layout() {
 
   // Redirect to setup if no base URL
   useEffect(() => {
-    if (!localStorage.getItem('komga-base-url')) {
+    if (!safeStorage.get('komga-base-url')) {
       navigate('/setup');
     }
   }, [navigate, location]);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api';
+import { api, safeStorage } from '../api';
 import type { ServerCapabilities } from '../api/types';
 import { Settings, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
 
@@ -16,17 +16,17 @@ export default function Setup() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedUrl = localStorage.getItem('komga-base-url');
+    const savedUrl = safeStorage.get('komga-base-url');
     if (savedUrl) setUrl(savedUrl);
     
-    const savedSort = localStorage.getItem('webui.defaultSort');
+    const savedSort = safeStorage.get('webui.defaultSort');
     if (savedSort) setDefaultSort(savedSort);
   }, []);
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newSort = e.target.value;
     setDefaultSort(newSort);
-    localStorage.setItem('webui.defaultSort', newSort);
+    safeStorage.set('webui.defaultSort', newSort);
   };
 
   const testConnection = async (testUrl: string) => {
@@ -43,7 +43,7 @@ export default function Setup() {
       });
       setStatus('success');
       setServerInfo(res.data);
-      localStorage.setItem('komga-base-url', cleanUrl);
+      safeStorage.set('komga-base-url', cleanUrl);
     } catch (err: any) {
       setStatus('error');
       if (err.message === 'Network Error') {

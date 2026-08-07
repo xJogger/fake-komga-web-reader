@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { api, getImageUrl } from '../api';
+import { api, getImageUrl, safeStorage } from '../api';
 import type { PageResponse, Series } from '../api/types';
 import { ArrowLeft, Loader2, Search } from 'lucide-react';
 
@@ -11,7 +11,7 @@ export default function SeriesList() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [sort, setSort] = useState(() => localStorage.getItem('webui.defaultSort') || 'metadata.titleSort,asc');
+  const [sort, setSort] = useState(() => safeStorage.get('webui.defaultSort') || 'metadata.titleSort,asc');
 
   useEffect(() => {
     const fetchSeries = async () => {

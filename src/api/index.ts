@@ -1,9 +1,25 @@
 import axios from 'axios';
 
-// Get base URL from localStorage, fallback to empty string
-export const getBaseUrl = () => {
-  return localStorage.getItem('komga-base-url') || '';
+// Safe localStorage wrapper
+export const safeStorage = {
+  get: (key: string) => {
+    try {
+      return localStorage.getItem(key) || '';
+    } catch {
+      return '';
+    }
+  },
+  set: (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Ignore
+    }
+  }
 };
+
+// Get base URL from localStorage safely
+export const getBaseUrl = () => safeStorage.get('komga-base-url');
 
 export const getImageUrl = (path: string) => {
   const baseUrl = getBaseUrl();

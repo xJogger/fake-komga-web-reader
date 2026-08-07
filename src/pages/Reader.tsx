@@ -1,26 +1,29 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
-import { api, getImageUrl } from '../api';
+import { api, getImageUrl, safeStorage } from '../api';
 import type { Book, PageDto } from '../api/types';
-import { ArrowLeft, Settings2, SkipBack, SkipForward, Loader2 } from 'lucide-react';
+import { ArrowLeft, Settings2, SkipBack, SkipForward, Loader2, X } from 'lucide-react';
 import clsx from 'clsx';
 
-type ReadMode = 'paged' | 'webtoon';
+type ReadMode = 'paged' | 'webtoon' | 'double';
+type ReadDirection = 'ltr' | 'rtl';
+type ScaleMode = 'fit-screen' | 'fit-width' | 'custom';
 
 // Lazy loaded image component for Webtoon mode
-const LazyImage = ({ page, bookId }: { page: PageDto, bookId: string }) => {
+const LazyImage = ({ page, bookId, customWidth }: { page: PageDto, bookId: string, customWidth: number }) => {
   const { ref, inView } = useInView({
     rootMargin: '1200px 0px', // Load images up to 1200px (about 1.5 screens) ahead/behind
     triggerOnce: true
   });
 
   return (
-    <div ref={ref} data-page={page.number} className="webtoon-page w-full min-h-[300px] flex items-center justify-center bg-slate-900/50">
+    <div ref={ref} data-page={page.number} className="webtoon-page w-full min-h-[300px] flex items-center justify-center bg-transparent my-1">
       {inView ? (
         <img
           src={getImageUrl(`/books/${bookId}/pages/${page.number}`)}
-          className="w-full h-auto object-cover"
+          className="h-auto object-cover"
+          style={{ width: customWidth < 100 ? `${customWidth}%` : '100%' }}
           loading="lazy"
           alt={`Page ${page.number}`}
         />
@@ -40,38 +43,25 @@ export default function Reader() {
   const [loading, setLoading] = useState(true);
   
   // Reader state
-  const [readMode, setReadMode] = useState<ReadMode>('paged');
+  const [readMode, setReadMode] = useState<ReadMode>(() => (safeStorage.get('webui.reader.mode') as ReadMode) || 'paged');
+  const [direction, setDirection] = useState<ReadDirection>(() => (safeStorage.get('webui.reader.direction') as ReadDirection) || 'ltr');
+  const [scaleMode, setScaleMode] = useState<ScaleMode>(() => (safeStorage.get('webui.reader.scale') as ScaleMode) || 'fit-screen');
+  const [customWidth, setCustomWidth] = useState<number>(() => Number(safeStorage.get('webui.reader.customWidth')) || 100);
+  const [firstPageSolo, setFirstPageSolo] = useState<boolean>(() => safeStorage.get('webui.reader.firstPageSolo') !== 'false');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [showUI, setShowUI] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const progressTimerRef = useRef<number | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
-  
-  const [toastMessage, setToastMessage] = useState('');
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => {
-      setToastMessage('');
-    }, 2000);
-  };
-
-  // Load preferences
-  useEffect(() => {
-    const savedMode = localStorage.getItem('webui.reader.mode') as ReadMode;
-    if (savedMode === 'paged' || savedMode === 'webtoon') {
-      setReadMode(savedMode);
-    }
-  }, []);
-
-  const toggleMode = () => {
-    const newMode = readMode === 'paged' ? 'webtoon' : 'paged';
-    setReadMode(newMode);
-    localStorage.setItem('webui.reader.mode', newMode);
-    showToast(newMode === 'paged' ? '已切换至单页模式' : '已切换至连续模式');
-  };
+  // Settings Save Helpers
+  const updateMode = (v: ReadMode) => { setReadMode(v); safeStorage.set('webui.reader.mode', v); };
+  const updateDirection = (v: ReadDirection) => { setDirection(v); safeStorage.set('webui.reader.direction', v); };
+  const updateScale = (v: ScaleMode) => { setScaleMode(v); safeStorage.set('webui.reader.scale', v); };
+  const updateCustomWidth = (v: number) => { setCustomWidth(v); safeStorage.set('webui.reader.customWidth', v.toString()); };
+  const updateFirstPageSolo = (v: boolean) => { setFirstPageSolo(v); safeStorage.set('webui.reader.firstPageSolo', v.toString()); };
 
   useEffect(() => {
     const fetchBookAndPages = async () => {
@@ -103,13 +93,9 @@ export default function Reader() {
     if (!bookId) return;
     if (progressTimerRef.current) window.clearTimeout(progressTimerRef.current);
     
-    // Debounce 1.5s
     progressTimerRef.current = window.setTimeout(async () => {
       try {
-        await api.patch(`/books/${bookId}/read-progress`, {
-          page,
-          completed
-        });
+        await api.patch(`/books/${bookId}/read-progress`, { page, completed });
       } catch (err) {
         console.error('Failed to sync progress', err);
       }
@@ -124,9 +110,60 @@ export default function Reader() {
     }
   }, [currentPage, loading, pages.length, syncProgress]);
 
-  // Paged mode tap handlers
+  // Page Navigation logic
+  const goPrev = useCallback(() => {
+    setCurrentPage(p => {
+      if (readMode === 'double') {
+        if (firstPageSolo && p === 2) return 1;
+        if (firstPageSolo && p === 3) return 1;
+        return Math.max(1, p - 2);
+      }
+      return Math.max(1, p - 1);
+    });
+  }, [readMode, firstPageSolo]);
+
+  const goNext = useCallback(() => {
+    setCurrentPage(p => {
+      if (readMode === 'double') {
+        if (firstPageSolo && p === 1) return 2;
+        return Math.min(pages.length, p + 2);
+      }
+      return Math.min(pages.length, p + 1);
+    });
+  }, [readMode, firstPageSolo, pages.length]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showSettings) {
+        if (e.key === 'Escape') setShowSettings(false);
+        return;
+      }
+      
+      if (e.key === 'Escape') {
+        setShowUI(prev => !prev);
+        return;
+      }
+
+      if (readMode === 'webtoon') return; // Let browser scroll
+
+      if (e.key === 'ArrowLeft') {
+        direction === 'ltr' ? goPrev() : goNext();
+      } else if (e.key === 'ArrowRight') {
+        direction === 'ltr' ? goNext() : goPrev();
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        goNext();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSettings, readMode, direction, goPrev, goNext]);
+
+  // Mouse / Tap Handlers
   const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
-    if (readMode !== 'paged') {
+    if (showSettings) return;
+    if (readMode === 'webtoon') {
       setShowUI(prev => !prev);
       return;
     }
@@ -134,15 +171,14 @@ export default function Reader() {
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const width = window.innerWidth;
     
-    // Middle 30% toggles UI
     if (clientX > width * 0.35 && clientX < width * 0.65) {
       setShowUI(prev => !prev);
     } else if (clientX <= width * 0.35) {
-      // Left side -> Prev page
-      setCurrentPage(p => Math.max(1, p - 1));
+      // Tap Left
+      direction === 'ltr' ? goPrev() : goNext();
     } else {
-      // Right side -> Next page
-      setCurrentPage(p => Math.max(1, Math.min(pages.length, p + 1)));
+      // Tap Right
+      direction === 'ltr' ? goNext() : goPrev();
     }
   };
 
@@ -154,9 +190,7 @@ export default function Reader() {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           const pageNum = Number(entry.target.getAttribute('data-page'));
-          if (pageNum) {
-            setCurrentPage(pageNum);
-          }
+          if (pageNum) setCurrentPage(pageNum);
         }
       });
     }, { rootMargin: '-40% 0px -40% 0px' });
@@ -185,6 +219,20 @@ export default function Reader() {
     }
   };
 
+  // Render Helpers
+  const getImageClass = () => {
+    if (scaleMode === 'fit-screen') return 'object-contain w-full h-full';
+    if (scaleMode === 'fit-width') return 'object-cover w-full h-auto';
+    return 'object-contain h-auto mx-auto'; // custom
+  };
+
+  const getImageStyle = () => {
+    if (scaleMode === 'custom') {
+      return { width: `${customWidth}%`, maxWidth: '100%' };
+    }
+    return {};
+  };
+
   if (loading) {
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-black">
@@ -193,35 +241,45 @@ export default function Reader() {
     );
   }
 
-  return (
-    <div className="relative h-[100dvh] w-full bg-black text-slate-200 overflow-hidden select-none">
-      
-      {/* Toast Notification */}
-      <div 
-        className={clsx(
-          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] bg-white/20 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 pointer-events-none",
-          toastMessage ? "opacity-100 scale-100" : "opacity-0 scale-95"
-        )}
-      >
-        {toastMessage}
-      </div>
+  // Calculate pages to show for Paged and Double modes
+  let visiblePages: number[] = [];
+  if (readMode === 'paged') {
+    visiblePages = [currentPage];
+  } else if (readMode === 'double') {
+    if (firstPageSolo && currentPage === 1) {
+      visiblePages = [1];
+    } else {
+      // Normalize to left page index
+      const base = firstPageSolo ? (currentPage % 2 === 0 ? currentPage : currentPage - 1) : (currentPage % 2 !== 0 ? currentPage : currentPage - 1);
+      visiblePages = [base];
+      if (base + 1 <= pages.length) {
+        visiblePages.push(base + 1);
+      }
+      if (direction === 'rtl') {
+        visiblePages.reverse();
+      }
+    }
+  }
 
+  return (
+    <div className="relative h-[100dvh] w-full bg-[#0a0a0a] text-slate-200 overflow-hidden select-none">
+      
       {/* Top UI */}
       <div 
         className={clsx(
-          "absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-safe transition-transform duration-300",
+          "absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/90 to-transparent pt-safe transition-transform duration-300",
           showUI ? "translate-y-0" : "-translate-y-full"
         )}
       >
         <div className="flex items-center gap-4 px-4 py-3 h-14">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-white/10">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-semibold truncate leading-tight">{book?.metadata.title || book?.name}</h1>
             <p className="text-[10px] text-slate-400 truncate">{book?.seriesTitle}</p>
           </div>
-          <button onClick={toggleMode} className="p-2 rounded-full hover:bg-white/10" title="切换阅读模式">
+          <button onClick={() => setShowSettings(true)} className="p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer" title="阅读设置">
             <Settings2 className="w-5 h-5" />
           </button>
         </div>
@@ -232,27 +290,33 @@ export default function Reader() {
         ref={scrollContainerRef}
         className={clsx(
           "w-full h-full",
-          readMode === 'webtoon' ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden flex items-center justify-center'
+          readMode === 'webtoon' ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden flex items-center justify-center',
+          scaleMode === 'fit-width' && readMode !== 'webtoon' ? 'overflow-y-auto items-start' : ''
         )}
         onClick={handleTap}
       >
-        {readMode === 'paged' ? (
-          // Paged Mode
-          <img 
-            key={currentPage}
-            src={getImageUrl(`/books/${bookId}/pages/${currentPage}`)}
-            className="w-full h-full object-contain"
-            alt={`Page ${currentPage}`}
-          />
-        ) : (
+        {readMode === 'webtoon' ? (
           // Webtoon Mode
-          <div className="flex flex-col w-full max-w-3xl mx-auto">
+          <div className="flex flex-col w-full mx-auto" style={scaleMode === 'custom' ? { alignItems: 'center' } : {}}>
             {pages.map(page => (
-              <LazyImage key={page.number} page={page} bookId={bookId!} />
+              <LazyImage key={page.number} page={page} bookId={bookId!} customWidth={scaleMode === 'custom' ? customWidth : 100} />
             ))}
             <div className="py-20 flex justify-center">
               <span className="text-slate-500">本卷完</span>
             </div>
+          </div>
+        ) : (
+          // Paged & Double Mode
+          <div className="flex w-full h-full justify-center">
+            {visiblePages.map(pageNum => (
+              <img 
+                key={pageNum}
+                src={getImageUrl(`/books/${bookId}/pages/${pageNum}`)}
+                className={clsx(getImageClass(), readMode === 'double' && visiblePages.length === 2 ? 'w-1/2 object-contain' : '')}
+                style={readMode === 'double' && visiblePages.length === 2 ? {} : getImageStyle()}
+                alt={`Page ${pageNum}`}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -260,35 +324,116 @@ export default function Reader() {
       {/* Bottom UI */}
       <div 
         className={clsx(
-          "absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/90 via-black/70 to-transparent pb-safe transition-transform duration-300",
+          "absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black/95 via-black/80 to-transparent pb-safe transition-transform duration-300",
           showUI ? "translate-y-0" : "translate-y-full"
         )}
       >
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 max-w-3xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={handlePrevBook} className="flex items-center gap-1 text-sm text-slate-300 hover:text-white p-2">
+            <button onClick={handlePrevBook} className="flex items-center gap-1 text-sm text-slate-300 hover:text-white p-2 cursor-pointer transition-colors">
               <SkipBack className="w-4 h-4" /> 上一卷
             </button>
             <div className="text-sm font-mono text-slate-300">
               {currentPage} / {pages.length}
             </div>
-            <button onClick={handleNextBook} className="flex items-center gap-1 text-sm text-slate-300 hover:text-white p-2">
+            <button onClick={handleNextBook} className="flex items-center gap-1 text-sm text-slate-300 hover:text-white p-2 cursor-pointer transition-colors">
               下一卷 <SkipForward className="w-4 h-4" />
             </button>
           </div>
           
-          {readMode === 'paged' && (
+          {readMode !== 'webtoon' && (
             <input 
               type="range" 
               min="1" 
               max={pages.length} 
               value={currentPage}
               onChange={(e) => setCurrentPage(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              className={clsx("w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500", direction === 'rtl' ? 'rotate-180' : '')}
             />
           )}
         </div>
       </div>
+      
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <h2 className="font-semibold text-lg">阅读器设置</h2>
+              <button onClick={() => setShowSettings(false)} className="p-1 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-6 max-h-[70vh] overflow-y-auto">
+              {/* Mode */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">排版模式</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => updateMode('paged')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", readMode === 'paged' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>单页</button>
+                  <button onClick={() => updateMode('double')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", readMode === 'double' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>双页</button>
+                  <button onClick={() => updateMode('webtoon')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", readMode === 'webtoon' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>连续</button>
+                </div>
+              </div>
+
+              {/* Direction (Hidden for Webtoon) */}
+              {readMode !== 'webtoon' && (
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">翻页方向</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => updateDirection('ltr')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", direction === 'ltr' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>从左到右 (LTR)</button>
+                    <button onClick={() => updateDirection('rtl')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", direction === 'rtl' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>从右到左 (RTL)</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Scale */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">页面缩放</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => updateScale('fit-screen')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", scaleMode === 'fit-screen' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>适应屏幕</button>
+                  <button onClick={() => updateScale('fit-width')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", scaleMode === 'fit-width' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>适应宽度</button>
+                  <button onClick={() => updateScale('custom')} className={clsx("py-2 rounded-lg text-sm border cursor-pointer transition-colors", scaleMode === 'custom' ? "bg-purple-600 border-purple-500 text-white" : "border-slate-700 hover:bg-slate-800")}>自定义</button>
+                </div>
+              </div>
+
+              {/* Custom Width Slider */}
+              {scaleMode === 'custom' && (
+                <div>
+                  <div className="flex justify-between text-sm text-slate-400 mb-2">
+                    <label>自定义宽度</label>
+                    <span>{customWidth}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="20" 
+                    max="100" 
+                    step="5"
+                    value={customWidth}
+                    onChange={(e) => updateCustomWidth(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
+                </div>
+              )}
+
+              {/* Double Page Options */}
+              {readMode === 'double' && (
+                <div>
+                  <label className="flex items-center justify-between cursor-pointer group">
+                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">封面 (第一页) 单独居中显示</span>
+                    <div className={clsx("w-10 h-6 rounded-full p-1 transition-colors relative", firstPageSolo ? "bg-purple-500" : "bg-slate-700")}>
+                      <div className={clsx("w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-200", firstPageSolo ? "translate-x-4" : "translate-x-0")} />
+                    </div>
+                    {/* Hidden input just to satisfy a11y partially, click handled on label via standard HTML checkbox behavior, but we use onClick on label */}
+                    <input type="checkbox" className="hidden" checked={firstPageSolo} onChange={(e) => updateFirstPageSolo(e.target.checked)} />
+                  </label>
+                </div>
+              )}
+              
+            </div>
+          </div>
+        </div>
+      )}
       
     </div>
   );
