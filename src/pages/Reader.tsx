@@ -222,8 +222,8 @@ export default function Reader() {
   // Render Helpers
   const getImageClass = () => {
     if (scaleMode === 'fit-screen') return 'object-contain w-full h-full';
-    if (scaleMode === 'fit-width') return 'object-cover w-full h-auto';
-    return 'object-contain h-auto mx-auto'; // custom
+    if (scaleMode === 'fit-width') return 'w-full h-auto block';
+    return 'h-auto block mx-auto'; // custom
   };
 
   const getImageStyle = () => {
@@ -290,8 +290,9 @@ export default function Reader() {
         ref={scrollContainerRef}
         className={clsx(
           "w-full h-full",
-          readMode === 'webtoon' ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden flex items-center justify-center',
-          scaleMode === 'fit-width' && readMode !== 'webtoon' ? 'overflow-y-auto items-start' : ''
+          readMode === 'webtoon' ? 'overflow-y-auto overflow-x-hidden' : 
+            (scaleMode === 'fit-width' || scaleMode === 'custom') ? 'overflow-auto flex flex-col items-center justify-start' : 
+            'overflow-hidden flex items-center justify-center'
         )}
         onClick={handleTap}
       >
