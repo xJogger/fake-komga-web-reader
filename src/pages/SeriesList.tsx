@@ -11,13 +11,14 @@ export default function SeriesList() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [sort, setSort] = useState('metadata.titleSort,asc');
 
   useEffect(() => {
     const fetchSeries = async () => {
       try {
         setLoading(true);
         const res = await api.get<PageResponse>(
-          `/series?library_id=${libraryId}&page=${page}&size=20&sort=metadata.titleSort,asc`
+          `/series?library_id=${libraryId}&page=${page}&size=20&sort=${sort}`
         );
         if (page === 0) {
           setSeries(res.data.content);
@@ -32,7 +33,13 @@ export default function SeriesList() {
       }
     };
     if (libraryId) fetchSeries();
-  }, [libraryId, page]);
+  }, [libraryId, page, sort]);
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSort(e.target.value);
+    setPage(0);
+    setSeries([]);
+  };
 
   return (
     <div className="p-4 w-full">
@@ -44,6 +51,17 @@ export default function SeriesList() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-bold flex-1 truncate">系列列表</h1>
+        <select 
+          value={sort} 
+          onChange={handleSortChange}
+          className="bg-transparent text-sm font-medium text-slate-600 dark:text-slate-300 outline-none cursor-pointer"
+        >
+          <option value="metadata.titleSort,asc">名称正序</option>
+          <option value="metadata.titleSort,desc">名称倒序</option>
+          <option value="lastModifiedDate,desc">最近修改</option>
+          <option value="createdDate,desc">最近添加</option>
+          <option value="random">随机</option>
+        </select>
         <button className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
           <Search className="w-5 h-5 text-slate-500" />
         </button>
