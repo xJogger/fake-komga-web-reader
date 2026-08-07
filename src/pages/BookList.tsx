@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { api } from '../api';
+import { api, getImageUrl } from '../api';
 import type { Book, PageResponse, Series } from '../api/types';
 import { ArrowLeft, Loader2, BookOpen } from 'lucide-react';
 
@@ -57,13 +57,13 @@ export default function BookList() {
               <div className="w-16 h-24 shrink-0 rounded overflow-hidden bg-slate-200 dark:bg-slate-800">
                 {/* Book cover might be the same as series cover or a specific book thumbnail if supported. Komga API supports /books/{id}/thumbnail */}
                 <img 
-                  src={`${api.defaults.baseURL}/books/${book.id}/thumbnail`}
+                  src={getImageUrl(`/books/${book.id}/thumbnail`)}
                   alt={book.metadata.title}
                   className="w-full h-full object-cover"
                   loading="lazy"
                   onError={(e) => {
                     // Fallback to series thumbnail
-                    (e.target as HTMLImageElement).src = `${api.defaults.baseURL}/series/${seriesId}/thumbnail`;
+                    (e.target as HTMLImageElement).src = getImageUrl(`/series/${seriesId}/thumbnail`);
                   }}
                 />
               </div>

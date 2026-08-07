@@ -1,8 +1,13 @@
 import axios from 'axios';
 
 // Get base URL from localStorage, fallback to empty string
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   return localStorage.getItem('komga-base-url') || '';
+};
+
+export const getImageUrl = (path: string) => {
+  const baseUrl = getBaseUrl();
+  return baseUrl ? `${baseUrl}/api/v1${path}` : `/api/v1${path}`;
 };
 
 export const api = axios.create({

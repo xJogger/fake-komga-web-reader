@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../api';
+import { api, getImageUrl } from '../api';
 import type { Book, PageDto } from '../api/types';
 import { ArrowLeft, Settings2, SkipBack, SkipForward, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
@@ -195,7 +195,7 @@ export default function Reader() {
           // Paged Mode
           <img 
             key={currentPage}
-            src={`${api.defaults.baseURL}/books/${bookId}/pages/${currentPage}`}
+            src={getImageUrl(`/books/${bookId}/pages/${currentPage}`)}
             className="w-full h-full object-contain"
             alt={`Page ${currentPage}`}
           />
@@ -206,7 +206,7 @@ export default function Reader() {
               <img
                 key={page.number}
                 data-page={page.number}
-                src={`${api.defaults.baseURL}/books/${bookId}/pages/${page.number}`}
+                src={getImageUrl(`/books/${bookId}/pages/${page.number}`)}
                 className="webtoon-page w-full h-auto object-cover"
                 loading="lazy"
                 alt={`Page ${page.number}`}

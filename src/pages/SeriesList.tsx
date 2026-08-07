@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { api } from '../api';
+import { api, getImageUrl } from '../api';
 import type { PageResponse, Series } from '../api/types';
 import { ArrowLeft, Loader2, Search } from 'lucide-react';
 
@@ -58,7 +58,7 @@ export default function SeriesList() {
           >
             <div className="aspect-[2/3] w-full rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 relative shadow-sm group-hover:shadow-md transition-all">
               <img 
-                src={`${api.defaults.baseURL}/series/${item.id}/thumbnail`}
+                src={getImageUrl(`/series/${item.id}/thumbnail`)}
                 alt={item.metadata.title}
                 className="w-full h-full object-cover"
                 loading="lazy"
