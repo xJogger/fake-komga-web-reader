@@ -18,17 +18,17 @@ const LazyImage = ({ page, bookId, customWidth }: { page: PageDto, bookId: strin
   });
 
   return (
-    <div ref={ref} data-page={page.number} className="webtoon-page w-full min-h-[300px] flex items-center justify-center bg-transparent my-1">
+    <div ref={ref} data-page={page.number} className="webtoon-page w-full flex items-center justify-center bg-transparent my-0">
       {inView ? (
         <img
           src={getImageUrl(`/books/${bookId}/pages/${page.number}`)}
-          className="h-auto object-cover"
-          style={{ width: customWidth < 100 ? `${customWidth}%` : '100%' }}
+          className="h-auto object-contain"
+          style={{ width: `${customWidth}%` }}
           loading="lazy"
           alt={`Page ${page.number}`}
         />
       ) : (
-        <div className="text-slate-500 text-sm">加载中...</div>
+        <div className="text-slate-500 text-sm min-h-[300px] flex items-center">加载中...</div>
       )}
     </div>
   );
@@ -223,12 +223,12 @@ export default function Reader() {
   const getImageClass = () => {
     if (scaleMode === 'fit-screen') return 'object-contain w-full h-full';
     if (scaleMode === 'fit-width') return 'w-full h-auto block';
-    return 'h-auto block mx-auto'; // custom
+    return 'h-auto block'; // custom
   };
 
   const getImageStyle = () => {
     if (scaleMode === 'custom') {
-      return { width: `${customWidth}%`, maxWidth: '100%' };
+      return { width: `${customWidth}%` };
     }
     return {};
   };
@@ -308,12 +308,12 @@ export default function Reader() {
           </div>
         ) : (
           // Paged & Double Mode
-          <div className="flex w-full h-full justify-center">
+          <div className="flex w-full h-full justify-center max-w-full">
             {visiblePages.map(pageNum => (
               <img 
                 key={pageNum}
                 src={getImageUrl(`/books/${bookId}/pages/${pageNum}`)}
-                className={clsx(getImageClass(), readMode === 'double' && visiblePages.length === 2 ? 'w-1/2 object-contain' : '')}
+                className={clsx(getImageClass(), readMode === 'double' && visiblePages.length === 2 ? 'h-full w-auto object-contain' : '')}
                 style={readMode === 'double' && visiblePages.length === 2 ? {} : getImageStyle()}
                 alt={`Page ${pageNum}`}
               />
@@ -408,7 +408,7 @@ export default function Reader() {
                   <input 
                     type="range" 
                     min="20" 
-                    max="100" 
+                    max="300" 
                     step="5"
                     value={customWidth}
                     onChange={(e) => updateCustomWidth(Number(e.target.value))}
