@@ -43,7 +43,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             {this.state.errorInfo?.componentStack}
           </div>
           <button 
-            onClick={() => { localStorage.clear(); window.location.reload(); }} 
+            onClick={() => { 
+              try { localStorage.clear(); } catch(e) {} 
+              window.location.reload(); 
+            }} 
             style={{ marginTop: '20px', padding: '10px 20px', backgroundColor: 'white', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
           >
             清除缓存并重试

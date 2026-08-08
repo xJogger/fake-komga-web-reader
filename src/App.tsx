@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Setup from './pages/Setup';
 import Libraries from './pages/Libraries';
 import SeriesList from './pages/SeriesList';
@@ -7,6 +7,9 @@ import Reader from './pages/Reader';
 import Layout from './components/Layout';
 
 function App() {
+  const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+  const Router = isFirefox ? MemoryRouter : HashRouter;
+
   return (
     <Router>
       <Routes>
