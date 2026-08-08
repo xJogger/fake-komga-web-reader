@@ -224,8 +224,8 @@ export default function Reader() {
   // Render Helpers
   const getImageClass = () => {
     if (scaleMode === 'fit-screen') return 'object-contain w-full h-full';
-    if (scaleMode === 'fit-width') return 'w-full h-auto block';
-    return 'h-auto block'; // custom
+    if (scaleMode === 'fit-width') return 'object-contain w-full h-auto block';
+    return 'object-contain h-auto block'; // custom
   };
 
   const getImageStyle = () => {
@@ -310,7 +310,7 @@ export default function Reader() {
           <div 
             className={clsx(
               "flex w-full justify-center max-w-full",
-              (scaleMode === 'fit-width' || scaleMode === 'custom') ? 'h-auto min-h-full' : 'h-full items-center'
+              (scaleMode === 'fit-width' || scaleMode === 'custom') ? 'h-auto min-h-full items-center' : 'h-full items-center'
             )}
             style={readMode === 'double' ? { gap: `${pageGap}px` } : {}}
           >
