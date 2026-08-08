@@ -11,14 +11,14 @@ type ReadDirection = 'ltr' | 'rtl';
 type ScaleMode = 'fit-screen' | 'fit-width' | 'custom';
 
 // Lazy loaded image component for Webtoon mode
-const LazyImage = ({ page, bookId, customWidth }: { page: PageDto, bookId: string, customWidth: number }) => {
+const LazyImage = ({ page, bookId, customWidth, pageGap }: { page: PageDto, bookId: string, customWidth: number, pageGap: number }) => {
   const { ref, inView } = useInView({
     rootMargin: '1200px 0px', // Load images up to 1200px (about 1.5 screens) ahead/behind
     triggerOnce: true
   });
 
   return (
-    <div ref={ref} data-page={page.number} className="webtoon-page w-full flex items-center justify-center bg-transparent my-0">
+    <div ref={ref} data-page={page.number} className="webtoon-page w-full flex items-center justify-center bg-transparent" style={{ marginBottom: `${pageGap}px` }}>
       {inView ? (
         <img
           src={getImageUrl(`/books/${bookId}/pages/${page.number}`)}
@@ -47,6 +47,7 @@ export default function Reader() {
   const [direction, setDirection] = useState<ReadDirection>(() => (safeStorage.get('webui.reader.direction') as ReadDirection) || 'ltr');
   const [scaleMode, setScaleMode] = useState<ScaleMode>(() => (safeStorage.get('webui.reader.scale') as ScaleMode) || 'fit-screen');
   const [customWidth, setCustomWidth] = useState<number>(() => Number(safeStorage.get('webui.reader.customWidth')) || 100);
+  const [pageGap, setPageGap] = useState<number>(() => Number(safeStorage.get('webui.reader.pageGap')) || 0);
   const [firstPageSolo, setFirstPageSolo] = useState<boolean>(() => safeStorage.get('webui.reader.firstPageSolo') !== 'false');
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +62,7 @@ export default function Reader() {
   const updateDirection = (v: ReadDirection) => { setDirection(v); safeStorage.set('webui.reader.direction', v); };
   const updateScale = (v: ScaleMode) => { setScaleMode(v); safeStorage.set('webui.reader.scale', v); };
   const updateCustomWidth = (v: number) => { setCustomWidth(v); safeStorage.set('webui.reader.customWidth', v.toString()); };
+  const updatePageGap = (val: number) => { setPageGap(val); safeStorage.set('webui.reader.pageGap', val.toString()); };
   const updateFirstPageSolo = (v: boolean) => { setFirstPageSolo(v); safeStorage.set('webui.reader.firstPageSolo', v.toString()); };
 
   useEffect(() => {
@@ -292,28 +294,31 @@ export default function Reader() {
           "w-full h-full",
           readMode === 'webtoon' ? 'overflow-y-auto overflow-x-hidden' : 
             (scaleMode === 'fit-width' || scaleMode === 'custom') ? 'overflow-auto flex flex-col items-center justify-start' : 
-            'overflow-hidden flex items-center justify-center'
+            'overflow-auto flex items-center justify-center'
         )}
         onClick={handleTap}
       >
         {readMode === 'webtoon' ? (
           // Webtoon Mode
-          <div className="flex flex-col w-full mx-auto" style={scaleMode === 'custom' ? { alignItems: 'center' } : {}}>
-            {pages.map(page => (
-              <LazyImage key={page.number} page={page} bookId={bookId!} customWidth={scaleMode === 'custom' ? customWidth : 100} />
+          <div className="flex flex-col w-full h-auto pb-[50vh]">
+            {pages.map(p => (
+              <LazyImage key={p.number} page={p} bookId={bookId!} customWidth={customWidth} pageGap={pageGap} />
             ))}
-            <div className="py-20 flex justify-center">
-              <span className="text-slate-500">本卷完</span>
-            </div>
           </div>
         ) : (
           // Paged & Double Mode
-          <div className="flex w-full h-full justify-center max-w-full">
+          <div 
+            className={clsx(
+              "flex w-full justify-center max-w-full",
+              (scaleMode === 'fit-width' || scaleMode === 'custom') ? 'h-auto min-h-full' : 'h-full items-center'
+            )}
+            style={readMode === 'double' ? { gap: `${pageGap}px` } : {}}
+          >
             {visiblePages.map(pageNum => (
               <img 
                 key={pageNum}
                 src={getImageUrl(`/books/${bookId}/pages/${pageNum}`)}
-                className={clsx(getImageClass(), readMode === 'double' && visiblePages.length === 2 ? 'h-full w-auto object-contain' : '')}
+                className={clsx(getImageClass(), readMode === 'double' && visiblePages.length === 2 ? 'max-h-full max-w-[50%] h-auto w-auto object-contain' : '')}
                 style={readMode === 'double' && visiblePages.length === 2 ? {} : getImageStyle()}
                 alt={`Page ${pageNum}`}
               />
@@ -412,8 +417,26 @@ export default function Reader() {
                     step="5"
                     value={customWidth}
                     onChange={(e) => updateCustomWidth(Number(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    className="w-full accent-blue-500"
                   />
+                  <div className="text-right text-sm text-slate-400 mt-1">{customWidth}%</div>
+                </div>
+              )}
+
+              {/* Page Gap */}
+              {(readMode === 'webtoon' || readMode === 'double') && (
+                <div className="mb-4">
+                  <label className="block text-sm text-slate-300 mb-2">页面间隙 (Gap)</label>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="50" 
+                    step="1"
+                    value={pageGap}
+                    onChange={(e) => updatePageGap(Number(e.target.value))}
+                    className="w-full accent-blue-500"
+                  />
+                  <div className="text-right text-sm text-slate-400 mt-1">{pageGap}px</div>
                 </div>
               )}
 
